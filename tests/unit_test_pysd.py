@@ -91,7 +91,6 @@ class TestPySD(unittest.TestCase):
         self.assertFalse((result0 == result1).all().all())
         self.assertTrue((result1 == result2).all().all())
 
-
     def test_run_return_columns_pysafe_names(self):
         """Addresses https://github.com/JamesPHoughton/pysd/issues/26"""
         import pysd
@@ -193,8 +192,19 @@ class TestPySD(unittest.TestCase):
 
         doc = model.doc()
         self.assertIsInstance(doc, pd.DataFrame)
-        self.assertIn('Teacup Temperature', doc['Real Name'].values)
-        self.assertIn('teacup_temperature', doc['Py Name'].values)
+        self.assertSetEqual({'Characteristic Time', 'Teacup Temperature',
+                             'FINAL TIME', 'Heat Loss to Room', 'INITIAL TIME',
+                             'Room Temperature', 'SAVEPER', 'TIME STEP'},
+                            set(doc['Real Name'].values))
+
+        self.assertEqual(doc[doc['Real Name'] == 'Heat Loss to Room']['Unit'].values[0],
+                         'Degrees Fahrenheit/Minute')
+        self.assertEqual(doc[doc['Real Name'] == 'Teacup Temperature']['Py Name'].values[0],
+                         'teacup_temperature')
+        self.assertEqual(doc[doc['Real Name'] == 'INITIAL TIME']['Comment'].values[0],
+                         'The initial time for the simulation.')
+        self.assertEqual(doc[doc['Real Name'] == 'Characteristic Time']['Type'].values[0],
+                         'constant')
 
     def test_cache(self):
         # Todo: test stepwise and runwise caching
@@ -304,17 +314,19 @@ class TestPySD(unittest.TestCase):
 
     def test_default_returns_with_construction_functions(self):
         """
-        If the run function is called with no arguments
+        If the run function is called with no arguments, should still be able
+        to get default return functions.
 
         """
         import pysd
         model = pysd.read_vensim('test-models/tests/delays/test_delays.mdl')
         ret = model.run()
-        self.assertTrue({'Stock Delay1I',
-                         'Stock Delay3I',
-                         'Stock Delay1',
-                         'Stock DelayN',
-                         'Stock Delay3'} <=
+        self.assertTrue({'Initial Value',
+                         'Input',
+                         'Order Variable',
+                         'Output Delay1',
+                         'Output Delay1I',
+                         'Output Delay3'} <=
                         set(ret.columns.values))
 
     def test_default_returns_with_lookups(self):
@@ -355,9 +367,6 @@ class TestPySD(unittest.TestCase):
         with warnings.catch_warnings(record=True) as w:
             model.run()
         self.assertEqual(len(w), 1)
-
-
-
 
 
 class TestModelInteraction(unittest.TestCase):
@@ -430,4 +439,4 @@ class TestMultiRun(unittest.TestCase):
         model = pysd.read_vensim('../tests/test-models/tests/delays/test_delays.mdl')
         res1 = model.run()
         res2 = model.run()
-        self.assertTrue(all(res1==res2))
+        self.assertTrue(all(res1 == res2))
